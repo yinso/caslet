@@ -1,0 +1,11 @@
+#!/usr/bin/env node
+var cas = require('../lib');
+var path = require('path');
+
+var yargs = require('yargs')
+  .alias('b', 'baseDir')
+  .default('baseDir', path.join(process.env.HOME, '.caslet'))
+  .usage('caslet command args...')
+  .demand(1);
+
+cas.run(yargs.argv);
