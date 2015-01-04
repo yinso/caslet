@@ -18,6 +18,7 @@ class FSCas
     @pathsDir = path.join @options.baseDir, 'paths'
     @contentsDir = path.join @options.baseDir, 'contents'
     @tempDir = path.join @options.baseDir, 'temp' # for moving the files... 
+    @cache = {}
   initialize: (cb) ->
     funclet
       .each [ @pathsDir, @contentsDir , @tempDir ], (dirPath, next) ->
@@ -32,14 +33,18 @@ class FSCas
     else
       cb {error: 'invalid_argument', args: [ option ]}
   _getViaPath: (pathsPath, cb) ->
-    funclet
-      .start (next) =>
-        normalized = @_pathsFilePath pathsPath
-        fs.readFile normalized, 'utf8', next
-      .catch(cb)
-      .done (data) =>
-        parsed = JSON.parse data
-        @_getViaHash parsed.hash, cb
+    if @cache.hasOwnProperty(pathsPath)
+      @_getViaHash @cache[pathsPath].hash, cb
+    else
+      funclet
+        .start (next) =>
+          normalized = @_pathsFilePath pathsPath
+          fs.readFile normalized, 'utf8', next
+        .catch(cb)
+        .done (data) =>
+          parsed = JSON.parse data
+          @cache[pathsPath] = parsed
+          @_getViaHash parsed.hash, cb
   _getViaHash: (hash, cb) ->
     try 
       hashPath = @_hashFilePath hash
@@ -88,7 +93,12 @@ class FSCas
     result = 
       type: 'fs'
       hash: hash
-    filelet.writeFile normalizedPath, JSON.stringify(result, null, 2), 'utf8', cb
+    filelet.writeFile normalizedPath, JSON.stringify(result, null, 2), 'utf8', (err) =>
+      if err 
+        cb err
+      else
+        @cache[destPath] = result
+        cb null
   _moveTempFile: (tempFilePath, hash, cb) ->
     try 
       hashPath = @_hashFilePath hash
